@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "timetracking"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["flask>=3.0"]
+
+[project.scripts]
+timetracking = "__main__:main"
+
+[tool.setuptools]
+py-modules = ["__main__", "app", "db"]

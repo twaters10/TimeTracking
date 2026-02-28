@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Time Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header>
+    <h1>Time Tracker</h1>
+    <nav>
+      <button class="tab-btn active" data-tab="timer">Timer</button>
+      <button class="tab-btn" data-tab="tasks">Tasks</button>
+      <button class="tab-btn" data-tab="log">Log Time</button>
+      <button class="tab-btn" data-tab="history">History</button>
+      <button class="tab-btn" data-tab="analytics">Analytics</button>
+    </nav>
+    <button id="btn-quit" class="btn btn-quit" title="Close application">&#x2715; Close</button>
+  </header>
+
+  <div id="recovery-modal" class="modal-overlay hidden">
+    <div class="modal">
+      <h3>Session Recovered</h3>
+      <p id="recovery-modal-msg"></p>
+      <div id="recovery-time-edit" class="modal-time-edit hidden">
+        <label>End time: <input id="recovery-end-time" type="text" placeholder="HH:MM" maxlength="5" autocomplete="off" /></label>
+      </div>
+      <div class="modal-actions">
+        <button id="btn-recovery-save" class="btn btn-primary">Save Entry</button>
+        <button id="btn-recovery-edit" class="btn btn-secondary">Edit End Time</button>
+        <button id="btn-recovery-discard" class="btn btn-danger">Discard</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Timer Tab ─────────────────────────────────────────── -->
+  <section id="tab-timer" class="tab active">
+    <div class="card timer-card">
+      <div id="timer-display" class="timer-display">00:00:00</div>
+      <div id="timer-rounded" class="timer-rounded hidden"></div>
+      <div id="timer-task-label" class="timer-task-label"></div>
+
+      <div id="timer-info" class="timer-info hidden">
+        <div id="timer-date"></div>
+        <div id="timer-started"></div>
+      </div>
+
+      <div id="daily-goal" class="daily-goal hidden">
+        <div class="daily-goal-label">
+          <span id="daily-goal-text"></span>
+          <span class="daily-goal-target">/ 8h today</span>
+        </div>
+        <div class="daily-goal-track">
+          <div id="daily-goal-bar" class="daily-goal-bar"></div>
+        </div>
+      </div>
+
+      <div id="timer-controls-idle" class="timer-controls">
+        <select id="timer-task-select">
+          <option value="">Select a task…</option>
+        </select>
+        <button id="btn-start" class="btn btn-primary">Start</button>
+      </div>
+
+      <div id="timer-controls-running" class="timer-controls hidden">
+        <button id="btn-pause" class="btn btn-secondary">Pause</button>
+        <button id="btn-resume" class="btn btn-primary hidden">Resume</button>
+        <button id="btn-stop" class="btn btn-danger">Stop</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Tasks Tab ─────────────────────────────────────────── -->
+  <section id="tab-tasks" class="tab hidden">
+    <div class="card">
+      <h2>Add Task</h2>
+      <form id="add-task-form" class="add-task-form">
+        <input id="new-task-name" type="text" placeholder="Task name" autocomplete="off" />
+        <button type="submit" class="btn btn-primary">Add</button>
+      </form>
+      <div id="add-task-error" class="error-msg hidden"></div>
+    </div>
+
+    <div class="card">
+      <h2>All Tasks</h2>
+      <table id="tasks-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tasks-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Log Time Tab ──────────────────────────────────────── -->
+  <section id="tab-log" class="tab hidden">
+    <div class="card">
+      <h2>Add Entry</h2>
+      <form id="log-entry-form" class="log-entry-form">
+        <select id="log-task-select">
+          <option value="">Select task…</option>
+        </select>
+        <input id="log-date" type="date" />
+        <div class="time-range">
+          <input id="log-start" type="text" placeholder="09:00" maxlength="5" autocomplete="off" />
+          <span class="time-sep">→</span>
+          <input id="log-end" type="text" placeholder="17:30" maxlength="5" autocomplete="off" />
+          <span class="time-hint">24-hour</span>
+        </div>
+        <button type="submit" class="btn btn-primary">+ Queue</button>
+      </form>
+      <div id="log-entry-error" class="error-msg hidden"></div>
+    </div>
+
+    <div id="log-queue-card" class="card hidden">
+      <h2>Pending — <span id="log-queue-count">0</span> entries</h2>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>Task</th><th>Date</th><th>From</th><th>To</th><th>Duration</th><th></th></tr>
+          </thead>
+          <tbody id="log-queue-tbody"></tbody>
+        </table>
+      </div>
+      <div class="log-queue-actions">
+        <button id="btn-submit-all" class="btn btn-primary">Submit All</button>
+        <button id="btn-clear-queue" class="btn btn-secondary">Clear</button>
+      </div>
+      <div id="log-submit-msg" class="hidden" style="margin-top:0.75rem;font-size:0.85rem;"></div>
+    </div>
+
+    <div class="card">
+      <h2>Recent Entries</h2>
+      <div id="log-recent-list"></div>
+    </div>
+  </section>
+
+  <!-- ── History Tab ───────────────────────────────────────── -->
+  <section id="tab-history" class="tab hidden">
+    <div id="history-list"></div>
+  </section>
+
+  <!-- ── Analytics Tab ─────────────────────────────────────── -->
+  <section id="tab-analytics" class="tab hidden">
+    <div class="subtab-nav">
+      <button class="subtab-btn active" data-subtab="weekly">Weekly</button>
+      <button class="subtab-btn" data-subtab="trends">Trends</button>
+    </div>
+
+    <!-- Weekly sub-tab -->
+    <div id="subtab-weekly" class="subtab active">
+      <div class="card analytics-nav">
+        <button id="btn-prev-week" class="btn btn-secondary">&#8592; Prev</button>
+        <span id="week-label" class="week-label"></span>
+        <button id="btn-next-week" class="btn btn-secondary">Next &#8594;</button>
+        <button id="btn-today-week" class="btn btn-secondary">Today</button>
+      </div>
+      <div class="card task-filter-card">
+        <div class="task-filter-header">
+          <span class="task-filter-label">Tasks</span>
+          <div class="task-filter-list" id="weekly-task-filters"></div>
+          <button class="range-btn" id="weekly-select-all">All</button>
+          <button class="range-btn" id="weekly-select-none">None</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Hours by Task</h2>
+        <div class="chart-container">
+          <canvas id="weekly-chart"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Daily Breakdown</h2>
+        <div class="table-scroll">
+          <table id="daily-table">
+            <thead id="daily-thead"></thead>
+            <tbody id="daily-tbody"></tbody>
+            <tfoot id="daily-tfoot"></tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Trends sub-tab -->
+    <div id="subtab-trends" class="subtab hidden">
+      <div class="card">
+        <div class="range-presets">
+          <button class="range-btn active" data-range="ytd">YTD</button>
+          <button class="range-btn" data-range="30d">Last 30d</button>
+          <button class="range-btn" data-range="90d">Last 90d</button>
+          <button class="range-btn" data-range="quarter">This Quarter</button>
+          <button class="range-btn" data-range="last-quarter">Last Quarter</button>
+          <button class="range-btn" data-range="6m">Last 6 Months</button>
+          <button class="range-btn" data-range="1y">Last Year</button>
+          <button class="range-btn" data-range="custom">Custom</button>
+        </div>
+        <div id="trends-custom-range" class="trends-custom-range hidden">
+          <input type="date" id="trends-start" />
+          <span class="time-sep">to</span>
+          <input type="date" id="trends-end" />
+          <button class="btn btn-primary btn-sm" id="btn-apply-trends">Apply</button>
+        </div>
+        <div id="trends-range-label" class="trends-range-label"></div>
+      </div>
+      <div class="card task-filter-card">
+        <div class="task-filter-header">
+          <span class="task-filter-label">Tasks</span>
+          <div class="task-filter-list" id="trends-task-filters"></div>
+          <button class="range-btn" id="trends-select-all">All</button>
+          <button class="range-btn" id="trends-select-none">None</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="chart-header">
+          <h2>Hours by Week</h2>
+          <div class="chart-type-toggle">
+            <button class="chart-type-btn active" data-chart-type="bar">&#9646;&#9646; Bar</button>
+            <button class="chart-type-btn" data-chart-type="line">&#8767; Line</button>
+          </div>
+        </div>
+        <div class="chart-container trends-chart-container">
+          <canvas id="trends-chart"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Weekly Breakdown</h2>
+        <div class="table-scroll">
+          <table>
+            <thead id="trends-thead"></thead>
+            <tbody id="trends-tbody"></tbody>
+            <tfoot id="trends-tfoot"></tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
