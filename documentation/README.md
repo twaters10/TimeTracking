@@ -39,6 +39,7 @@ To stop the app, click the **✕ Close** button in the top-right corner of the U
 ## Features
 
 ### Timer
+
 - Start a timer against any active task
 - Pause and resume mid-session
 - Displays elapsed time (live) and elapsed time rounded up to the nearest 15 minutes
@@ -46,16 +47,19 @@ To stop the app, click the **✕ Close** button in the top-right corner of the U
 - Daily progress bar showing hours logged today toward an 8-hour goal (excludes tasks prefixed with `Non-Work`)
 
 ### Tasks
+
 - Add, rename, disable, or delete tasks
 - Disabled tasks are hidden from the timer and log dropdowns but their history is preserved
 - Tasks with existing entries cannot be deleted — disable them instead
 
 ### Log Time
+
 - Manually log a time range (task, date, start → end) for past entries
 - Queue multiple entries before submitting them all at once
 - The queue persists across page refreshes (stored in browser localStorage)
 
 ### History
+
 - Full entry history, grouped by week then by day
 - Edit or delete any entry inline
 - Weeks and days are collapsible; the most recent week/day is open by default
@@ -74,7 +78,17 @@ To stop the app, click the **✕ Close** button in the top-right corner of the U
 - Toggle between bar and line chart
 - Filter by individual tasks
 
+### Pomodoro
+
+- Focus timer with a draining progress ring
+- Configurable work duration, short break, long break, and number of rounds before a long break
+- Ring and phase label color-shift between Focus (indigo), Short Break (green), and Long Break (cyan)
+- Round progress dots show where you are in the current cycle
+- Audio beep and browser notification when each phase ends — the next phase starts automatically
+- Settings saved to `localStorage`
+
 ### Session Recovery
+
 If the app is closed or crashes while a timer is running, the next startup will show a recovery modal. You can save the entry (with the suggested end time or a custom one), or discard it.
 
 ## Data & Backups
@@ -93,7 +107,7 @@ db.py              # All database logic
 templates/
   index.html       # Single-page HTML shell
 static/
-  app.js           # All frontend logic (~1200 lines, vanilla JS)
+  app.js           # All frontend logic (~1300 lines, vanilla JS)
   style.css        # Styles
 data/              # Created at runtime, not in version control
   timetracking.db

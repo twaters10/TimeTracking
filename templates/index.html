@@ -16,6 +16,7 @@
       <button class="tab-btn" data-tab="log">Log Time</button>
       <button class="tab-btn" data-tab="history">History</button>
       <button class="tab-btn" data-tab="analytics">Analytics</button>
+      <button class="tab-btn" data-tab="pomodoro">Pomodoro</button>
     </nav>
     <button id="btn-quit" class="btn btn-quit" title="Close application">&#x2715; Close</button>
   </header>
@@ -238,6 +239,72 @@
           </table>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- ── Pomodoro Tab ──────────────────────────────────────── -->
+  <section id="tab-pomodoro" class="tab hidden">
+    <div class="pom-wrap">
+
+      <div class="pom-ring-wrap pom-phase-work" id="pom-ring-wrap">
+        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+          <circle class="pom-ring-bg" cx="100" cy="100" r="88" />
+          <circle class="pom-ring-fill" id="pom-ring-fill" cx="100" cy="100" r="88" />
+        </svg>
+        <div class="pom-overlay">
+          <div class="pom-phase-badge" id="pom-phase-badge">FOCUS</div>
+          <div class="pom-time" id="pom-time">25:00</div>
+          <div class="pom-round-label" id="pom-round-label">Round 1 of 4</div>
+        </div>
+      </div>
+
+      <div class="pom-dots" id="pom-dots"></div>
+
+      <div class="pom-controls">
+        <button id="btn-pom-start" class="btn btn-primary pom-btn-start">Start</button>
+        <button id="btn-pom-reset" class="btn btn-secondary">Reset</button>
+      </div>
+
+      <div class="card pom-settings-card">
+        <div class="pom-settings-header" id="pom-settings-toggle">
+          <span>Settings</span>
+          <span class="pom-settings-chevron" id="pom-settings-chevron">&#9654;</span>
+        </div>
+        <div class="pom-settings-body hidden" id="pom-settings-body">
+          <div class="pom-setting-row">
+            <label for="pom-work">Work</label>
+            <div class="pom-setting-input-group">
+              <input id="pom-work" type="number" min="1" max="120" value="25" />
+              <span class="pom-unit">min</span>
+            </div>
+          </div>
+          <div class="pom-setting-row">
+            <label for="pom-short-break">Short Break</label>
+            <div class="pom-setting-input-group">
+              <input id="pom-short-break" type="number" min="1" max="60" value="5" />
+              <span class="pom-unit">min</span>
+            </div>
+          </div>
+          <div class="pom-setting-row">
+            <label for="pom-long-break">Long Break</label>
+            <div class="pom-setting-input-group">
+              <input id="pom-long-break" type="number" min="1" max="60" value="15" />
+              <span class="pom-unit">min</span>
+            </div>
+          </div>
+          <div class="pom-setting-row">
+            <label for="pom-rounds">Rounds</label>
+            <div class="pom-setting-input-group">
+              <input id="pom-rounds" type="number" min="1" max="10" value="4" />
+              <span class="pom-unit">before long break</span>
+            </div>
+          </div>
+          <div class="pom-settings-actions">
+            <button id="btn-pom-apply" class="btn btn-primary btn-sm">Apply</button>
+          </div>
+        </div>
+      </div>
+
     </div>
   </section>
 

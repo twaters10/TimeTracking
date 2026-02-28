@@ -680,3 +680,204 @@ tfoot td {
   font-size: 0.75rem;
   margin-top: 0.25rem;
 }
+
+/* ── Pomodoro ──────────────────────────────────────────────────────── */
+
+.pom-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.75rem;
+  padding: 2.5rem 1rem 3rem;
+}
+
+/* Ring */
+.pom-ring-wrap {
+  position: relative;
+  width: 240px;
+  height: 240px;
+  flex-shrink: 0;
+}
+
+.pom-ring-wrap svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);  /* arc starts at 12 o'clock */
+}
+
+.pom-ring-bg {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 10;
+}
+
+.pom-ring-fill {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 10;
+  stroke-linecap: round;
+  stroke-dasharray: 553;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 1s linear, stroke 0.4s ease;
+}
+
+/* Phase color theming — changes ring stroke and badge */
+.pom-phase-work     .pom-ring-fill { stroke: var(--primary); }
+.pom-phase-break    .pom-ring-fill { stroke: var(--success); }
+.pom-phase-longbreak .pom-ring-fill { stroke: #22d3ee; }
+
+/* Overlay (time + labels centered inside ring) */
+.pom-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+}
+
+.pom-phase-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.65rem;
+  border-radius: 99px;
+  background: rgba(99, 102, 241, 0.18);
+  color: var(--primary);
+  transition: background 0.4s ease, color 0.4s ease;
+}
+
+.pom-phase-work     .pom-phase-badge { background: rgba(99, 102, 241, 0.18); color: var(--primary); }
+.pom-phase-break    .pom-phase-badge { background: rgba(34, 197, 94,  0.18); color: var(--success); }
+.pom-phase-longbreak .pom-phase-badge { background: rgba(34, 211, 238, 0.18); color: #22d3ee; }
+
+.pom-time {
+  font-size: 3.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--text);
+}
+
+.pom-round-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Round dots */
+.pom-dots {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.pom-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: transparent;
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+.pom-dot.done {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.pom-phase-break    .pom-dot.done,
+.pom-phase-longbreak .pom-dot.done { background: var(--success); border-color: var(--success); }
+
+.pom-dot.current {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
+}
+
+/* Controls */
+.pom-controls {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.pom-btn-start {
+  min-width: 110px;
+}
+
+/* Settings card */
+.pom-settings-card {
+  width: 100%;
+  max-width: 380px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.pom-settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.25rem;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: color 0.15s;
+}
+
+.pom-settings-header:hover { color: var(--text); }
+
+.pom-settings-chevron {
+  font-size: 0.6rem;
+  transition: transform 0.2s;
+}
+
+.pom-settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 0 1.25rem 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.pom-settings-body.hidden { display: none; }
+
+.pom-setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.875rem;
+}
+
+.pom-setting-row label {
+  color: var(--text);
+  flex-shrink: 0;
+  min-width: 90px;
+}
+
+.pom-setting-input-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pom-setting-input-group input[type="number"] {
+  width: 64px;
+  text-align: center;
+  padding: 0.35rem 0.5rem;
+}
+
+.pom-unit {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.pom-settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.25rem;
+}

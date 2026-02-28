@@ -16,6 +16,7 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
     if (btn.dataset.tab === "log")       { loadLogTasks(); loadRecentEntries(); renderQueue(); }
     if (btn.dataset.tab === "history")   loadHistory();
     if (btn.dataset.tab === "analytics") loadAnalytics();
+    if (btn.dataset.tab === "pomodoro")  initPomodoro();
   });
 });
 
@@ -1177,3 +1178,205 @@ document.getElementById("btn-quit").addEventListener("click", async () => {
     });
   } catch (_) {}
 })();
+
+/* ── Pomodoro ──────────────────────────────────────────────────────── */
+
+const POM_CIRC = 2 * Math.PI * 88;   // r=88 → circumference ≈ 552.9
+
+let pomState    = "idle";   // "idle" | "running" | "paused"
+let pomPhase    = "work";   // "work" | "break" | "longbreak"
+let pomRound    = 1;        // ever-incrementing round counter
+let pomLeft     = 0;        // seconds remaining in current phase
+let pomTotal    = 0;        // total seconds for current phase
+let pomInterval = null;
+let pomSettings = { work: 25, shortBreak: 5, longBreak: 15, rounds: 4 };
+
+function initPomodoro() {
+  const saved = localStorage.getItem("pomSettings");
+  if (saved) { try { pomSettings = JSON.parse(saved); } catch (_) {} }
+
+  document.getElementById("pom-work").value        = pomSettings.work;
+  document.getElementById("pom-short-break").value = pomSettings.shortBreak;
+  document.getElementById("pom-long-break").value  = pomSettings.longBreak;
+  document.getElementById("pom-rounds").value      = pomSettings.rounds;
+
+  if (pomState === "idle") {
+    pomPhase = "work";
+    pomRound = 1;
+    pomLeft  = pomSettings.work * 60;
+    pomTotal = pomSettings.work * 60;
+  }
+  renderPomodoro();
+}
+
+function startPausePomodoro() {
+  if (pomState === "running") {
+    clearInterval(pomInterval);
+    pomInterval = null;
+    pomState = "paused";
+    renderPomodoro();
+    return;
+  }
+  if (pomState === "idle" && typeof Notification !== "undefined" && Notification.permission === "default") {
+    Notification.requestPermission();
+  }
+  pomState = "running";
+  pomInterval = setInterval(tickPomodoro, 1000);
+  renderPomodoro();
+}
+
+function resetPomodoro() {
+  clearInterval(pomInterval);
+  pomInterval = null;
+  pomState = "idle";
+  pomPhase = "work";
+  pomRound = 1;
+  pomLeft  = pomSettings.work * 60;
+  pomTotal = pomSettings.work * 60;
+  renderPomodoro();
+}
+
+function tickPomodoro() {
+  pomLeft--;
+  if (pomLeft <= 0) {
+    pomLeft = 0;
+    renderPomodoro();
+    advancePhase();
+  } else {
+    renderPomodoro();
+  }
+}
+
+function advancePhase() {
+  clearInterval(pomInterval);
+  pomInterval = null;
+  pomBeep();
+
+  if (pomPhase === "work") {
+    const isLong = (pomRound % pomSettings.rounds === 0);
+    pomPhase = isLong ? "longbreak" : "break";
+    const mins = isLong ? pomSettings.longBreak : pomSettings.shortBreak;
+    pomLeft = pomTotal = mins * 60;
+    pomNotify(
+      isLong ? "Long break time! 🎉" : "Break time!",
+      `Round ${((pomRound - 1) % pomSettings.rounds) + 1} of ${pomSettings.rounds} complete.`
+    );
+  } else {
+    pomRound++;
+    pomPhase = "work";
+    pomLeft = pomTotal = pomSettings.work * 60;
+    const cyclePos = ((pomRound - 1) % pomSettings.rounds) + 1;
+    pomNotify("Back to focus!", `Starting round ${cyclePos} of ${pomSettings.rounds}.`);
+  }
+
+  pomState = "running";
+  pomInterval = setInterval(tickPomodoro, 1000);
+  renderPomodoro();
+}
+
+function renderPomodoro() {
+  // Ring fill — drains from full (left=total) to empty (left=0)
+  const offset = pomTotal > 0 ? POM_CIRC * (1 - pomLeft / pomTotal) : 0;
+  document.getElementById("pom-ring-fill").style.strokeDashoffset = offset;
+
+  // Time display (MM:SS)
+  const m = Math.floor(pomLeft / 60).toString().padStart(2, "0");
+  const s = (pomLeft % 60).toString().padStart(2, "0");
+  document.getElementById("pom-time").textContent = `${m}:${s}`;
+
+  // Phase badge
+  const labels = { work: "FOCUS", break: "SHORT BREAK", longbreak: "LONG BREAK" };
+  document.getElementById("pom-phase-badge").textContent = labels[pomPhase];
+
+  // Round label (position within current cycle)
+  const cyclePos = ((pomRound - 1) % pomSettings.rounds) + 1;
+  const displayRound = pomPhase === "work" ? cyclePos : ((pomRound - 1) % pomSettings.rounds) + 1;
+  document.getElementById("pom-round-label").textContent =
+    `Round ${displayRound} of ${pomSettings.rounds}`;
+
+  // Phase color on wrapper
+  const wrap = document.getElementById("pom-ring-wrap");
+  wrap.classList.remove("pom-phase-work", "pom-phase-break", "pom-phase-longbreak");
+  wrap.classList.add(`pom-phase-${pomPhase}`);
+
+  // Round dots
+  const dotsEl = document.getElementById("pom-dots");
+  dotsEl.innerHTML = "";
+  const dotsCount   = pomSettings.rounds;
+  const completedPos = ((pomRound - 1) % pomSettings.rounds) + 1;
+  for (let i = 1; i <= dotsCount; i++) {
+    const dot = document.createElement("div");
+    dot.className = "pom-dot";
+    if (pomPhase === "work") {
+      if (i < completedPos) dot.classList.add("done");
+      else if (i === completedPos) dot.classList.add("current");
+    } else {
+      // In break — the session that just completed = completedPos
+      if (i <= completedPos) dot.classList.add("done");
+    }
+    dotsEl.appendChild(dot);
+  }
+
+  // Start/Pause button
+  const btn = document.getElementById("btn-pom-start");
+  if (pomState === "running") {
+    btn.textContent = "Pause";
+    btn.classList.remove("btn-primary");
+    btn.classList.add("btn-secondary");
+  } else {
+    btn.textContent = pomState === "idle" ? "Start" : "Resume";
+    btn.classList.remove("btn-secondary");
+    btn.classList.add("btn-primary");
+  }
+}
+
+function applyPomSettings() {
+  pomSettings = {
+    work:       Math.max(1, parseInt(document.getElementById("pom-work").value)        || 25),
+    shortBreak: Math.max(1, parseInt(document.getElementById("pom-short-break").value) || 5),
+    longBreak:  Math.max(1, parseInt(document.getElementById("pom-long-break").value)  || 15),
+    rounds:     Math.max(1, parseInt(document.getElementById("pom-rounds").value)      || 4),
+  };
+  localStorage.setItem("pomSettings", JSON.stringify(pomSettings));
+  resetPomodoro();
+}
+
+function pomBeep() {
+  try {
+    const play = (freq, delay, duration, vol = 0.35) => {
+      setTimeout(() => {
+        const ctx  = new AudioContext();
+        const osc  = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(vol, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + duration);
+      }, delay);
+    };
+    play(880,   0,   0.5);
+    play(880,  220,  0.5);
+    play(1100, 440,  0.7, 0.4);
+  } catch (_) {}
+}
+
+function pomNotify(title, body) {
+  if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+    new Notification(title, { body });
+  }
+}
+
+// Wire up Pomodoro controls
+document.getElementById("pom-settings-toggle").addEventListener("click", () => {
+  const body    = document.getElementById("pom-settings-body");
+  const chevron = document.getElementById("pom-settings-chevron");
+  body.classList.toggle("hidden");
+  chevron.innerHTML = body.classList.contains("hidden") ? "&#9654;" : "&#9660;";
+});
+document.getElementById("btn-pom-start").addEventListener("click", startPausePomodoro);
+document.getElementById("btn-pom-reset").addEventListener("click", resetPomodoro);
+document.getElementById("btn-pom-apply").addEventListener("click", applyPomSettings);
