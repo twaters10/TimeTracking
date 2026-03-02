@@ -16,7 +16,6 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
     if (btn.dataset.tab === "log")       { loadLogTasks(); loadRecentEntries(); renderQueue(); }
     if (btn.dataset.tab === "history")   loadHistory();
     if (btn.dataset.tab === "analytics") loadAnalytics();
-    if (btn.dataset.tab === "pomodoro")  initPomodoro();
   });
 });
 
@@ -69,8 +68,11 @@ function setTimerUI(state) {
 
     if (state.started_at) {
       const startDate = new Date(state.started_at);
-      timerDate.textContent    = startDate.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
-      timerStarted.textContent = "Started at " + startDate.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+      timerDate.textContent = startDate.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+      const editRow = document.getElementById("timer-start-edit-row");
+      if (!editRow.classList.contains("editing")) {
+        timerStarted.textContent = "Started at " + startDate.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+      }
       info.classList.remove("hidden");
     }
 
@@ -122,6 +124,7 @@ async function pollTimer() {
 }
 
 pollTimer();
+loadTimerWeekHistory();
 
 async function loadActiveTasks() {
   const res   = await fetch("/api/tasks");
@@ -173,6 +176,67 @@ document.getElementById("btn-stop").addEventListener("click", async () => {
   timerStartedAt = null;
   setTimerUI({ running: false });
   loadDailyGoal();
+  loadTimerWeekHistory();
+});
+
+// Start-time inline editing
+document.getElementById("timer-started").addEventListener("click", () => {
+  const editRow = document.getElementById("timer-start-edit-row");
+  if (editRow.classList.contains("editing")) return;
+
+  // Read current start time from the status response (last polled)
+  const res = fetch("/api/timer/status").then(r => r.json()).then(state => {
+    if (!state.running) return;
+    const startDate = new Date(state.started_at);
+    const hh = startDate.getHours().toString().padStart(2, "0");
+    const mm = startDate.getMinutes().toString().padStart(2, "0");
+    document.getElementById("timer-start-input").value = `${hh}:${mm}`;
+
+    document.getElementById("timer-started").classList.add("hidden");
+    editRow.classList.remove("hidden");
+    editRow.classList.add("editing");
+    document.getElementById("timer-start-input").focus();
+  });
+});
+
+async function applyStartTimeEdit() {
+  const editRow  = document.getElementById("timer-start-edit-row");
+  const input    = document.getElementById("timer-start-input");
+  const timeStr  = input.value;
+  if (!timeStr) { cancelStartTimeEdit(); return; }
+
+  // Build new UTC ISO: keep today's local date, replace time
+  const [h, m] = timeStr.split(":").map(Number);
+  const newStart = new Date();
+  newStart.setHours(h, m, 0, 0);
+
+  if (newStart > new Date()) { alert("Start time cannot be in the future."); return; }
+
+  const res = await fetch("/api/timer/start_time", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ started_at: newStart.toISOString() }),
+  });
+  if (!res.ok) { alert((await res.json()).error ?? "Could not update start time"); return; }
+
+  editRow.classList.remove("editing", "hidden");
+  editRow.classList.add("hidden");
+  document.getElementById("timer-started").classList.remove("hidden");
+  await pollTimer();
+}
+
+function cancelStartTimeEdit() {
+  const editRow = document.getElementById("timer-start-edit-row");
+  editRow.classList.remove("editing", "hidden");
+  editRow.classList.add("hidden");
+  document.getElementById("timer-started").classList.remove("hidden");
+}
+
+document.getElementById("btn-start-time-ok").addEventListener("click", applyStartTimeEdit);
+document.getElementById("btn-start-time-cancel").addEventListener("click", cancelStartTimeEdit);
+document.getElementById("timer-start-input").addEventListener("keydown", e => {
+  if (e.key === "Enter") applyStartTimeEdit();
+  if (e.key === "Escape") cancelStartTimeEdit();
 });
 
 /* ── Tasks ────────────────────────────────────────────────────────── */
@@ -691,6 +755,96 @@ async function deleteHistoryEntry(id) {
   if (!confirm("Delete this entry?")) return;
   await fetch(`/api/entries/${id}`, { method: "DELETE" });
   loadHistory();
+}
+
+/* ── Timer — this week's history ─────────────────────────────────── */
+
+const timerHistoryOpenDates = new Set();
+
+async function loadTimerWeekHistory() {
+  const container = document.getElementById("timer-week-history");
+  const res       = await fetch("/api/entries/all");
+  const all       = await res.json();
+
+  const sun      = sundayOf(new Date());
+  const sat      = addDays(sun, 6);
+  const weekStart = dateToISO(sun);
+  const weekEnd   = dateToISO(sat);
+  const entries   = all.filter(e => e.date >= weekStart && e.date <= weekEnd);
+
+  container.innerHTML = "";
+
+  if (!entries.length) {
+    container.innerHTML = `<p style="text-align:center;color:var(--text-muted);padding:0.5rem 0">No entries this week</p>`;
+    return;
+  }
+
+  // Seed: today open by default
+  const today = dateToISO(new Date());
+  if (timerHistoryOpenDates.size === 0) timerHistoryOpenDates.add(today);
+
+  // Group by date (API is newest-first, so Map insertion order is descending)
+  const dateGroups = new Map();
+  entries.forEach(e => {
+    if (!dateGroups.has(e.date)) dateGroups.set(e.date, []);
+    dateGroups.get(e.date).push(e);
+  });
+
+  dateGroups.forEach((dayEntries, date) => {
+    const totalSecs = dayEntries.reduce((s, e) => s + (e.duration_seconds ?? 0), 0);
+    const summary   = `${dayEntries.length} entr${dayEntries.length === 1 ? "y" : "ies"} · ${(totalSecs / 3600).toFixed(1)}h`;
+    const isOpen    = timerHistoryOpenDates.has(date);
+
+    const group = document.createElement("div");
+    group.className = "history-group" + (isOpen ? " open" : "");
+
+    const header = document.createElement("div");
+    header.className = "history-group-header";
+    header.innerHTML = `
+      <span class="history-chevron">&#9654;</span>
+      <span class="history-date">${fmtDateLong(date)}</span>
+      <span class="history-summary">${summary}</span>`;
+    header.addEventListener("click", () => {
+      if (group.classList.contains("open")) {
+        group.classList.remove("open");
+        timerHistoryOpenDates.delete(date);
+      } else {
+        group.classList.add("open");
+        timerHistoryOpenDates.add(date);
+      }
+    });
+
+    const rows = dayEntries.map(e => {
+      const from = parseStoredTime(e.started_at);
+      const to   = parseStoredTime(e.ended_at);
+      const dur  = fmtDurationSecs(e.duration_seconds);
+      return `<tr>
+        <td>${escHtml(e.task_name)}</td>
+        <td>${from}</td>
+        <td>${to}</td>
+        <td>${dur}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="deleteTimerEntry(${e.id})">×</button></td>
+      </tr>`;
+    }).join("");
+
+    const body = document.createElement("div");
+    body.className = "history-group-body";
+    body.innerHTML = `<table>
+      <thead><tr><th>Task</th><th>From</th><th>To</th><th>Duration</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+
+    group.appendChild(header);
+    group.appendChild(body);
+    container.appendChild(group);
+  });
+}
+
+async function deleteTimerEntry(id) {
+  if (!confirm("Delete this entry?")) return;
+  await fetch(`/api/entries/${id}`, { method: "DELETE" });
+  loadTimerWeekHistory();
+  loadDailyGoal();
 }
 
 /* ── Analytics sub-tab switching ─────────────────────────────────── */
@@ -1288,6 +1442,10 @@ function renderPomodoro() {
   const labels = { work: "FOCUS", break: "SHORT BREAK", longbreak: "LONG BREAK" };
   document.getElementById("pom-phase-badge").textContent = labels[pomPhase];
 
+  // Card header status (visible when collapsed)
+  const cardStatus = document.getElementById("pom-card-status");
+  if (cardStatus) cardStatus.textContent = `${labels[pomPhase]} · ${m}:${s}`;
+
   // Round label (position within current cycle)
   const cyclePos = ((pomRound - 1) % pomSettings.rounds) + 1;
   const displayRound = pomPhase === "work" ? cyclePos : ((pomRound - 1) % pomSettings.rounds) + 1;
@@ -1371,6 +1529,13 @@ function pomNotify(title, body) {
 }
 
 // Wire up Pomodoro controls
+document.getElementById("pom-card-toggle").addEventListener("click", () => {
+  const body    = document.getElementById("pom-card-body");
+  const chevron = document.getElementById("pom-card-chevron");
+  body.classList.toggle("hidden");
+  chevron.innerHTML = body.classList.contains("hidden") ? "&#9654;" : "&#9660;";
+});
+
 document.getElementById("pom-settings-toggle").addEventListener("click", () => {
   const body    = document.getElementById("pom-settings-body");
   const chevron = document.getElementById("pom-settings-chevron");
@@ -1380,3 +1545,4 @@ document.getElementById("pom-settings-toggle").addEventListener("click", () => {
 document.getElementById("btn-pom-start").addEventListener("click", startPausePomodoro);
 document.getElementById("btn-pom-reset").addEventListener("click", resetPomodoro);
 document.getElementById("btn-pom-apply").addEventListener("click", applyPomSettings);
+initPomodoro();

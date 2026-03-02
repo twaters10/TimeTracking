@@ -164,6 +164,16 @@ def resume_timer():
     return True, None
 
 
+def update_timer_start(new_started_at: str):
+    """Update started_at on the active timer. new_started_at is a UTC ISO string."""
+    with get_conn() as conn:
+        row = conn.execute("SELECT id FROM active_timer WHERE id = 1").fetchone()
+        if not row:
+            return False, "not_running"
+        conn.execute("UPDATE active_timer SET started_at = ? WHERE id = 1", (new_started_at,))
+    return True, None
+
+
 def stop_timer():
     with get_conn() as conn:
         timer = conn.execute("SELECT * FROM active_timer WHERE id = 1").fetchone()

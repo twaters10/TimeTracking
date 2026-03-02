@@ -151,6 +151,29 @@ nav { display: flex; gap: 0.5rem; }
 }
 
 .tab { display: none; padding: 2rem; max-width: 900px; margin: 0 auto; }
+
+#tab-timer { max-width: 1300px; }
+
+.timer-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 2rem;
+  align-items: start;
+}
+
+.timer-col-left,
+.timer-col-right {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.timer-col-left > .card,
+.timer-col-right > .card { margin-bottom: 0; }
+
+@media (max-width: 800px) {
+  .timer-layout { grid-template-columns: 1fr; }
+}
 .tab.active { display: block; }
 
 .card {
@@ -194,6 +217,29 @@ nav { display: flex; gap: 0.5rem; }
   font-size: 1rem;
   min-height: 1.5rem;
   margin-bottom: 1.5rem;
+}
+
+.timer-started-editable {
+  cursor: pointer;
+  text-decoration: underline dotted;
+}
+.timer-started-editable:hover { color: var(--accent); }
+
+.timer-start-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  justify-content: center;
+  margin-bottom: 0.25rem;
+}
+.timer-start-edit-row input[type="time"] {
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 0.9rem;
 }
 
 .timer-controls {
@@ -683,19 +729,61 @@ tfoot td {
 
 /* ── Pomodoro ──────────────────────────────────────────────────────── */
 
+/* Pomodoro card (embedded in Timer tab) */
+.pom-main-card { padding: 0; overflow: hidden; }
+
+.pom-main-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.25rem;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  transition: color 0.15s;
+}
+.pom-main-header:hover { color: var(--text); }
+.pom-main-card:has(#pom-card-body.hidden) .pom-main-header { border-bottom-color: transparent; }
+
+.pom-main-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pom-card-chevron {
+  font-size: 0.6rem;
+  transition: transform 0.2s;
+}
+
+.pom-card-status {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Settings inline (inside the card, no nested-card border) */
+.pom-settings-inline {
+  border-top: 1px solid var(--border);
+}
+
 .pom-wrap {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1.75rem;
-  padding: 2.5rem 1rem 3rem;
+  gap: 1.25rem;
+  padding: 1.25rem 1rem 1.5rem;
 }
 
 /* Ring */
 .pom-ring-wrap {
   position: relative;
-  width: 240px;
-  height: 240px;
+  width: 180px;
+  height: 180px;
   flex-shrink: 0;
 }
 
@@ -804,14 +892,6 @@ tfoot td {
 
 .pom-btn-start {
   min-width: 110px;
-}
-
-/* Settings card */
-.pom-settings-card {
-  width: 100%;
-  max-width: 380px;
-  padding: 0;
-  overflow: hidden;
 }
 
 .pom-settings-header {

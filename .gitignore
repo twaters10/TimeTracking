@@ -3,3 +3,4 @@ __pycache__/
 /data
 CLAUDE.md
 /.claude
+.DS_Store

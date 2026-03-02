@@ -122,6 +122,18 @@ def api_timer_resume():
     return jsonify({"ok": True})
 
 
+@app.patch("/api/timer/start_time")
+def api_timer_update_start():
+    data = request.get_json(silent=True) or {}
+    started_at = data.get("started_at")
+    if not started_at:
+        return jsonify({"error": "started_at required"}), 400
+    ok, err = db.update_timer_start(started_at)
+    if err == "not_running":
+        return jsonify({"error": "No timer running"}), 409
+    return jsonify({"ok": True})
+
+
 @app.post("/api/timer/stop")
 def api_timer_stop():
     timer, err = db.stop_timer()
