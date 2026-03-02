@@ -760,11 +760,16 @@ async function deleteHistoryEntry(id) {
 /* ── Timer — this week's history ─────────────────────────────────── */
 
 const timerHistoryOpenDates = new Set();
+let   timerHistoryTasks     = [];
 
 async function loadTimerWeekHistory() {
   const container = document.getElementById("timer-week-history");
-  const res       = await fetch("/api/entries/all");
-  const all       = await res.json();
+  const [entriesRes, tasksRes] = await Promise.all([
+    fetch("/api/entries/all"),
+    fetch("/api/tasks"),
+  ]);
+  const all         = await entriesRes.json();
+  timerHistoryTasks = await tasksRes.json();
 
   const sun      = sundayOf(new Date());
   const sat      = addDays(sun, 6);
@@ -814,24 +819,11 @@ async function loadTimerWeekHistory() {
       }
     });
 
-    const rows = dayEntries.map(e => {
-      const from = parseStoredTime(e.started_at);
-      const to   = parseStoredTime(e.ended_at);
-      const dur  = fmtDurationSecs(e.duration_seconds);
-      return `<tr>
-        <td>${escHtml(e.task_name)}</td>
-        <td>${from}</td>
-        <td>${to}</td>
-        <td>${dur}</td>
-        <td><button class="btn btn-danger btn-sm" onclick="deleteTimerEntry(${e.id})">×</button></td>
-      </tr>`;
-    }).join("");
-
     const body = document.createElement("div");
     body.className = "history-group-body";
     body.innerHTML = `<table>
       <thead><tr><th>Task</th><th>From</th><th>To</th><th>Duration</th><th></th></tr></thead>
-      <tbody>${rows}</tbody>
+      <tbody>${dayEntries.map(e => timerEntryRowHTML(e)).join("")}</tbody>
     </table>`;
 
     group.appendChild(header);
@@ -843,6 +835,75 @@ async function loadTimerWeekHistory() {
 async function deleteTimerEntry(id) {
   if (!confirm("Delete this entry?")) return;
   await fetch(`/api/entries/${id}`, { method: "DELETE" });
+  loadTimerWeekHistory();
+  loadDailyGoal();
+}
+
+function timerEntryRowHTML(e) {
+  const from = parseStoredTime(e.started_at);
+  const to   = parseStoredTime(e.ended_at);
+  const dur  = fmtDurationSecs(e.duration_seconds);
+  return `<tr data-entry-id="${e.id}">
+    <td>${escHtml(e.task_name)}</td>
+    <td>${from}</td>
+    <td>${to}</td>
+    <td>${dur}</td>
+    <td class="actions">
+      <button class="btn btn-secondary btn-sm" onclick="startTimerEditEntry(${e.id},${e.task_id},'${e.date}','${from}','${to}')">Edit</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteTimerEntry(${e.id})">×</button>
+    </td>
+  </tr>`;
+}
+
+function startTimerEditEntry(id, taskId, date, from, to) {
+  const row = document.querySelector(`tr[data-entry-id="${id}"]`);
+  if (!row) return;
+  const taskOptions = timerHistoryTasks.map(t =>
+    `<option value="${t.id}" ${t.id === taskId ? "selected" : ""}>${escHtml(t.name)}</option>`
+  ).join("");
+  row.className = "edit-row";
+  row.innerHTML = `
+    <td colspan="5">
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+        <select id="edit-task-${id}">${taskOptions}</select>
+        <input type="date" id="edit-date-${id}" value="${date}" />
+        <input type="text" id="edit-start-${id}" value="${from}" placeholder="HH:MM" maxlength="5" style="width:72px;" oninput="autoColonTime(this,event)" />
+        <span class="time-sep">→</span>
+        <input type="text" id="edit-end-${id}" value="${to}" placeholder="HH:MM" maxlength="5" style="width:72px;" oninput="autoColonTime(this,event)" />
+        <div class="edit-actions">
+          <button class="btn btn-primary btn-sm" onclick="saveTimerEditEntry(${id})">Save</button>
+          <button class="btn btn-secondary btn-sm" onclick="loadTimerWeekHistory()">Cancel</button>
+        </div>
+      </div>
+      <div id="edit-error-${id}" class="edit-error hidden"></div>
+    </td>`;
+}
+
+async function saveTimerEditEntry(id) {
+  const taskId  = document.getElementById(`edit-task-${id}`).value;
+  const date    = document.getElementById(`edit-date-${id}`).value;
+  const errDiv  = document.getElementById(`edit-error-${id}`);
+  const started = parseTime(document.getElementById(`edit-start-${id}`).value);
+  const ended   = parseTime(document.getElementById(`edit-end-${id}`).value);
+
+  if (!date) { errDiv.textContent = "Date is required."; errDiv.classList.remove("hidden"); return; }
+  if (!started || !ended) {
+    errDiv.textContent = "Times must be HH:MM in 24-hour format.";
+    errDiv.classList.remove("hidden");
+    return;
+  }
+
+  const res = await fetch(`/api/entries/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ task_id: Number(taskId), date, started_at: started, ended_at: ended }),
+  });
+  if (!res.ok) {
+    errDiv.textContent = (await res.json()).error ?? "Could not save.";
+    errDiv.classList.remove("hidden");
+    return;
+  }
+  timerHistoryOpenDates.add(date);
   loadTimerWeekHistory();
   loadDailyGoal();
 }
